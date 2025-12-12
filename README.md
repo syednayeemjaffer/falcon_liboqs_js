@@ -5,7 +5,7 @@ React library for Falcon-512 seeded key generation using WebAssembly.
 ## Installation
 
 ```bash
-npm install react-falcon
+npm install https://github.com/syednayeemjaffer/falcon_liboqs_js
 ```
 
 ## Usage
