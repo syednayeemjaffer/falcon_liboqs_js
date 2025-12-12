@@ -1,0 +1,55 @@
+{
+  "name": "react-falcon",
+  "version": "0.1.0",
+  "description": "React library for Falcon-512 seeded key generation using WebAssembly",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./src": "./src/index.ts"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "npm run build:mock-wasm && npm run build:lib",
+    "build:wasm": "cd ../falcon-wasm && wasm-pack build --target web --out-dir ../react-falcon/src/wasm",
+    "build:mock-wasm": "mkdir -p src/wasm && node scripts/create-mock-wasm.js",
+    "build:lib": "rollup -c",
+    "dev": "rollup -c -w",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "falcon",
+    "post-quantum",
+    "cryptography",
+    "wasm",
+    "react",
+    "key-generation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@types/react": "^18.2.45",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "eslint": "^8.56.0",
+    "react": "^18.2.0",
+    "rollup": "^4.6.1",
+    "rollup-plugin-dts": "^6.1.0",
+    "tslib": "^2.8.1",
+    "typescript": "^5.3.3"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "falcon-wasm",
+  "version": "0.1.0",
+  "files": [
+    "falcon_wasm.js",
+    "falcon_wasm_bg.wasm",
+    "falcon_wasm.d.ts"
+  ],
+  "main": "falcon_wasm.js",
+  "types": "falcon_wasm.d.ts",
+  "sideEffects": false
+}
