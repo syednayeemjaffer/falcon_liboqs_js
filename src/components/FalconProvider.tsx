@@ -93,6 +93,12 @@ function createMockWasmModule() {
       const childSeed = createMockWasmModule().derive_child_seed(master_seed, index);
       return createMockWasmModule().keypair_from_seed(childSeed);
     },
+    sign: (message: Uint8Array | number[], secret_key: Uint8Array | number[]) => {
+      return createMockWasmModule().sign(message, secret_key);
+    },
+    verify: (message: Uint8Array | number[], signature: Uint8Array | number[], public_key: Uint8Array | number[]) => {
+      return createMockWasmModule().verify(message, signature, public_key);
+    },
     Constants: {
       min_seed_length: () => 48,
       public_key_length: () => 897,
@@ -201,6 +207,13 @@ export const FalconProvider: React.FC<FalconProviderProps> = ({
           min_seed_length: () => wasmModule.Constants.min_seed_length(),
           public_key_length: () => wasmModule.Constants.public_key_length(),
           secret_key_length: () => wasmModule.Constants.secret_key_length(),
+        },
+        sign: (message: Uint8Array, secretKey: Uint8Array) => {
+          const sig = wasmModule.sign(message, secretKey);
+          return new Uint8Array(sig);
+        },
+        verify: (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) => {
+          return wasmModule.verify(message, signature, publicKey);
         },
       };
 

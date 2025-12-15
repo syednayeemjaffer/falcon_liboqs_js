@@ -17,5 +17,14 @@ export class KeyPair {
 export function min_seed_length(): number;
 export function public_key_length(): number;
 export function secret_key_length(): number;
+export function sign(
+  message: Uint8Array | number[],
+  secret_key: Uint8Array | number[]
+): number[];
+export function verify(
+  message: Uint8Array | number[],
+  signature: Uint8Array | number[],
+  public_key: Uint8Array | number[]
+): boolean;
 
 export default init;

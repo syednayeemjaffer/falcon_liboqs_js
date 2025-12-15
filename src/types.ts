@@ -29,6 +29,8 @@ export interface FalconWasm {
     public_key_length: () => number;
     secret_key_length: () => number;
   };
+  sign: (message: Uint8Array, secretKey: Uint8Array) => Uint8Array;
+  verify: (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) => boolean;
 }
 
 /**

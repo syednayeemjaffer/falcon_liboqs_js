@@ -127,6 +127,71 @@ export function keypair_from_index(master_seed, index) {
   return keypair_from_seed(childSeed);
 }
 
+// Sign a message with a mock Falcon-512 secret key
+export function sign(message, secret_key) {
+  const msgArray =
+    message instanceof Uint8Array ? Array.from(message) : Array.isArray(message) ? message : [];
+  const skArray =
+    secret_key instanceof Uint8Array
+      ? Array.from(secret_key)
+      : Array.isArray(secret_key)
+      ? secret_key
+      : [];
+
+  if (!skArray || skArray.length === 0) {
+    throw new Error('Secret key must not be empty');
+  }
+
+  // Mock deterministic signature: hash(message || secret_key)
+  const combined = [...msgArray, ...skArray];
+  const hash = simpleHash(combined);
+
+  const sigLen = 64;
+  const signature = new Uint8Array(sigLen);
+  for (let i = 0; i < sigLen; i++) {
+    signature[i] = hash[i % hash.length];
+  }
+
+  return Array.from(signature);
+}
+
+// Verify a mock Falcon-512 signature
+export function verify(message, signature, public_key) {
+  const msgArray =
+    message instanceof Uint8Array ? Array.from(message) : Array.isArray(message) ? message : [];
+  const sigArray =
+    signature instanceof Uint8Array
+      ? Array.from(signature)
+      : Array.isArray(signature)
+      ? signature
+      : [];
+  const pkArray =
+    public_key instanceof Uint8Array
+      ? Array.from(public_key)
+      : Array.isArray(public_key)
+      ? public_key
+      : [];
+
+  if (!sigArray || sigArray.length === 0 || !pkArray || pkArray.length === 0) {
+    return false;
+  }
+
+  // In this mock, recompute a deterministic expected signature
+  const combined = [...msgArray, ...pkArray];
+  const hash = simpleHash(combined);
+
+  const expected = new Uint8Array(sigArray.length);
+  for (let i = 0; i < sigArray.length; i++) {
+    expected[i] = hash[i % hash.length];
+  }
+
+  if (expected.length !== sigArray.length) return false;
+  for (let i = 0; i < sigArray.length; i++) {
+    if (expected[i] !== sigArray[i]) return false;
+  }
+  return true;
+}
+
 // KeyPair class - use direct properties for compatibility
 class KeyPair {
   constructor(public_key, secret_key) {
@@ -180,6 +245,15 @@ export class KeyPair {
 export function min_seed_length(): number;
 export function public_key_length(): number;
 export function secret_key_length(): number;
+export function sign(
+  message: Uint8Array | number[],
+  secret_key: Uint8Array | number[]
+): number[];
+export function verify(
+  message: Uint8Array | number[],
+  signature: Uint8Array | number[],
+  public_key: Uint8Array | number[]
+): boolean;
 
 export default init;
 `;

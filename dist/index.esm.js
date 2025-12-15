@@ -47,6 +47,18 @@ const useFalcon = () => {
         }
         return wasm.keypair_from_index(masterSeed, index);
     }, [wasm, isReady]);
+    const sign = useCallback((message, secretKey) => {
+        if (!wasm || !isReady) {
+            throw new Error('Falcon WASM is not ready');
+        }
+        return wasm.sign(message, secretKey);
+    }, [wasm, isReady]);
+    const verify = useCallback((message, signature, publicKey) => {
+        if (!wasm || !isReady) {
+            throw new Error('Falcon WASM is not ready');
+        }
+        return wasm.verify(message, signature, publicKey);
+    }, [wasm, isReady]);
     const getConstants = useCallback(() => {
         if (!wasm || !isReady) {
             throw new Error('Falcon WASM is not ready');
@@ -66,6 +78,8 @@ const useFalcon = () => {
         keypairFromPassphrase,
         deriveChildSeed,
         keypairFromIndex,
+        sign,
+        verify,
         getConstants,
     };
 };
@@ -152,6 +166,12 @@ function createMockWasmModule() {
             const childSeed = createMockWasmModule().derive_child_seed(master_seed, index);
             return createMockWasmModule().keypair_from_seed(childSeed);
         },
+        sign: (message, secret_key) => {
+            return createMockWasmModule().sign(message, secret_key);
+        },
+        verify: (message, signature, public_key) => {
+            return createMockWasmModule().verify(message, signature, public_key);
+        },
         Constants: {
             min_seed_length: () => 48,
             public_key_length: () => 897,
@@ -237,6 +257,13 @@ const FalconProvider = ({ children, wasmPath = '/wasm/falcon_wasm.js', }) => {
                     min_seed_length: () => wasmModule.Constants.min_seed_length(),
                     public_key_length: () => wasmModule.Constants.public_key_length(),
                     secret_key_length: () => wasmModule.Constants.secret_key_length(),
+                },
+                sign: (message, secretKey) => {
+                    const sig = wasmModule.sign(message, secretKey);
+                    return new Uint8Array(sig);
+                },
+                verify: (message, signature, publicKey) => {
+                    return wasmModule.verify(message, signature, publicKey);
                 },
             };
             setWasm(falconWasm);

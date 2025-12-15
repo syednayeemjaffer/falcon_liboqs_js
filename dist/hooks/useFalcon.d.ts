@@ -8,6 +8,8 @@ export declare const useFalcon: () => {
     keypairFromPassphrase: (passphrase: Uint8Array, salt: Uint8Array, iterations: number) => KeyPair;
     deriveChildSeed: (masterSeed: Uint8Array, index: number) => Uint8Array;
     keypairFromIndex: (masterSeed: Uint8Array, index: number) => KeyPair;
+    sign: (message: Uint8Array, secretKey: Uint8Array) => Uint8Array;
+    verify: (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) => boolean;
     getConstants: () => {
         minSeedLength: number;
         publicKeyLength: number;

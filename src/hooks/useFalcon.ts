@@ -66,6 +66,26 @@ export const useFalcon = () => {
     [wasm, isReady]
   );
 
+  const sign = useCallback(
+    (message: Uint8Array, secretKey: Uint8Array): Uint8Array => {
+      if (!wasm || !isReady) {
+        throw new Error('Falcon WASM is not ready');
+      }
+      return wasm.sign(message, secretKey);
+    },
+    [wasm, isReady]
+  );
+
+  const verify = useCallback(
+    (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): boolean => {
+      if (!wasm || !isReady) {
+        throw new Error('Falcon WASM is not ready');
+      }
+      return wasm.verify(message, signature, publicKey);
+    },
+    [wasm, isReady]
+  );
+
   const getConstants = useCallback(() => {
     if (!wasm || !isReady) {
       throw new Error('Falcon WASM is not ready');
@@ -86,6 +106,8 @@ export const useFalcon = () => {
     keypairFromPassphrase,
     deriveChildSeed,
     keypairFromIndex,
+    sign,
+    verify,
     getConstants,
   };
 };

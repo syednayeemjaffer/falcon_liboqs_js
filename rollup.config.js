@@ -42,11 +42,5 @@ export default [
       return false;
     },
   },
-  {
-    input: 'dist/index.d.ts',
-    output: [{ file: 'dist/index.d.ts', format: 'esm' }],
-    plugins: [dts()],
-    external: [/\.css$/],
-  },
 ];
 
