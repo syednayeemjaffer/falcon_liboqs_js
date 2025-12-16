@@ -1,6 +1,6 @@
 {
   "name": "react-falcon",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "React library for Falcon-512 seeded key generation using WebAssembly",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
