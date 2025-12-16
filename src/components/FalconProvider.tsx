@@ -171,6 +171,7 @@ function createMockWasmModule() {
 
 export const FalconProvider: React.FC<FalconProviderProps> = ({
   children,
+  // wasmPath is kept for backwards compatibility but is currently ignored.
   wasmPath = '/wasm/falcon_wasm.js',
 }) => {
   const [wasm, setWasm] = useState<FalconWasm | null>(null);
@@ -183,9 +184,10 @@ export const FalconProvider: React.FC<FalconProviderProps> = ({
       let wasmModule: any;
       
       try {
-        // Import the real WASM module (ES module)
-        const wasmModulePath = wasmPath.replace('.js', '');
-        wasmModule = await import(`../wasm/${wasmModulePath}.js`);
+        // Import the real WASM module (ES module) bundled with this package.
+        // The build script copies the real WASM bindings into react-falcon/wasm,
+        // and rollup bundles them so consumers don't need to copy anything.
+        wasmModule = await import('../wasm/falcon_wasm.js');
         
         // Initialize the real WASM module
         if (wasmModule.default) {
