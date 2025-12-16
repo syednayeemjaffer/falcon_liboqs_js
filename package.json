@@ -20,6 +20,7 @@
   "scripts": {
     "build": "npm run build:mock-wasm && npm run build:lib",
     "build:wasm": "cd ../falcon-wasm && wasm-pack build --target web --out-dir ../react-falcon/src/wasm",
+    "build:real-wasm": "cd ../falcon-wasm-c && ./build.sh",
     "build:mock-wasm": "mkdir -p src/wasm && node scripts/create-mock-wasm.js",
     "build:lib": "rollup -c --bundleConfigAsCjs",
     "dev": "rollup -c -w",

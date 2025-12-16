@@ -116,14 +116,18 @@ function createMockWasmModule() {
         throw new Error('Secret key must not be empty');
       }
       
-      // Mock deterministic signature: hash(message || secret_key)
-      const combined = [...msgArray, ...skArray];
+      // Mock deterministic signature: hash(message || seed_pattern)
+      // Key generation: publicKey[i] = seedHash[i], secretKey[i] = seedHash[(i+100) % len]
+      // So: secretKey[100:132] = seedHash[0:32] (wrapped)
+      // We use this to create signature, verify will use publicKey[0:32] = seedHash[0:32]
+      const seedPattern = skArray.slice(100, 132); // Equals seedHash[0:32]
+      const combined = [...msgArray, ...seedPattern];
       const hash = simpleHash(combined);
       
-      const sigLen = 64;
+      const sigLen = 666; // Falcon-512 signature size
       const signature = new Uint8Array(sigLen);
       for (let i = 0; i < sigLen; i++) {
-        signature[i] = hash[i % hash.length];
+        signature[i] = hash[i % hash.length] ^ (i & 0xff);
       }
       
       return Array.from(signature);
@@ -137,13 +141,20 @@ function createMockWasmModule() {
         return false;
       }
       
-      // In this mock, recompute a deterministic expected signature
-      const combined = [...msgArray, ...pkArray];
+      // Check signature length (Falcon-512 signatures are 666 bytes)
+      if (sigArray.length !== 666) {
+        return false;
+      }
+      
+      // For mock verification: Extract seed pattern from public_key
+      // publicKey[0:32] = seedHash[0:32] which matches secretKey[100:132] used in sign()
+      const seedPattern = pkArray.slice(0, 32); // Equals seedHash[0:32]
+      const combined = [...msgArray, ...seedPattern];
       const hash = simpleHash(combined);
       
-      const expected = new Uint8Array(sigArray.length);
-      for (let i = 0; i < sigArray.length; i++) {
-        expected[i] = hash[i % hash.length];
+      const expected = new Uint8Array(666);
+      for (let i = 0; i < 666; i++) {
+        expected[i] = hash[i % hash.length] ^ (i & 0xff);
       }
       
       if (expected.length !== sigArray.length) return false;
@@ -168,39 +179,31 @@ export const FalconProvider: React.FC<FalconProviderProps> = ({
 
   const loadWasm = useCallback(async () => {
     try {
-      // Load WASM module - try to load from public/wasm directory
-      // For Create React App, files in public/ are served from root
+      // Try to load the real WASM module first
       let wasmModule: any;
       
       try {
-        // Try to fetch and eval the WASM module
-        const wasmUrl = wasmPath.startsWith('/') ? wasmPath : `/${wasmPath}`;
-        const response = await fetch(wasmUrl);
-        const wasmCode = await response.text();
+        // Import the real WASM module (ES module)
+        const wasmModulePath = wasmPath.replace('.js', '');
+        wasmModule = await import(`../wasm/${wasmModulePath}.js`);
         
-        // Create a module from the code
-        const moduleFunction = new Function('exports', 'module', wasmCode + '\nreturn module.exports || exports;');
-        const fakeModule = { exports: {} };
-        wasmModule = moduleFunction(fakeModule.exports, fakeModule);
-        
-        // If that didn't work, try as ES module
-        if (!wasmModule || !wasmModule.generate_seed) {
-          // Use the mock implementation directly
-          wasmModule = createMockWasmModule();
+        // Initialize the real WASM module
+        if (wasmModule.default) {
+          await wasmModule.default();
+        } else if (wasmModule.init) {
+          await wasmModule.init();
         }
+        
+        // Verify it's the real module (has the expected functions)
+        if (!wasmModule.generate_seed || !wasmModule.keypair_from_seed) {
+          throw new Error('Real WASM module missing expected functions');
+        }
+        
+        console.log('✅ Loaded REAL quantum-resistant Falcon-512 WASM');
       } catch (error) {
         // Fallback to mock implementation
-        console.warn('Failed to load WASM from file, using mock implementation:', error);
+        console.warn('⚠️ Failed to load real WASM, using mock implementation:', error);
         wasmModule = createMockWasmModule();
-      }
-      
-      // Initialize the WASM module
-      if (wasmModule.init) {
-        await wasmModule.init();
-      } else if (wasmModule.default && typeof wasmModule.default === 'function') {
-        await wasmModule.default();
-      } else if (wasmModule.initSync) {
-        wasmModule.initSync();
       }
       
       // Create the WASM interface
@@ -211,9 +214,13 @@ export const FalconProvider: React.FC<FalconProviderProps> = ({
         },
         keypair_from_seed: (seed: Uint8Array) => {
           const result = wasmModule.keypair_from_seed(seed);
+          // Real WASM returns { public_key: number[], secret_key: number[] }
+          // Mock returns { public_key: () => number[], secret_key: () => number[] }
+          const pk = Array.isArray(result.public_key) ? result.public_key : result.public_key();
+          const sk = Array.isArray(result.secret_key) ? result.secret_key : result.secret_key();
           return {
-            publicKey: new Uint8Array(result.public_key()),
-            secretKey: new Uint8Array(result.secret_key()),
+            publicKey: new Uint8Array(pk),
+            secretKey: new Uint8Array(sk),
           };
         },
         seed_from_passphrase: (
@@ -233,25 +240,44 @@ export const FalconProvider: React.FC<FalconProviderProps> = ({
           salt: Uint8Array,
           iterations: number
         ) => {
-          const result = wasmModule.keypair_from_passphrase(
-            passphrase,
-            salt,
-            iterations
-          );
+          if (wasmModule.keypair_from_passphrase) {
+            const seed = wasmModule.seed_from_passphrase(passphrase, salt, iterations);
+            return falconWasm.keypair_from_seed(new Uint8Array(seed));
+          }
+          // Fallback for mock
+          const result = wasmModule.keypair_from_passphrase(passphrase, salt, iterations);
+          const pk = Array.isArray(result.public_key) ? result.public_key : result.public_key();
+          const sk = Array.isArray(result.secret_key) ? result.secret_key : result.secret_key();
           return {
-            publicKey: new Uint8Array(result.public_key()),
-            secretKey: new Uint8Array(result.secret_key()),
+            publicKey: new Uint8Array(pk),
+            secretKey: new Uint8Array(sk),
           };
         },
         derive_child_seed: (masterSeed: Uint8Array, index: number) => {
-          const seed = wasmModule.derive_child_seed(masterSeed, index);
-          return new Uint8Array(seed);
+          if (wasmModule.derive_child_seed) {
+            const seed = wasmModule.derive_child_seed(masterSeed, index);
+            return new Uint8Array(seed);
+          }
+          // Fallback for mock
+          return new Uint8Array(wasmModule.derive_child_seed(masterSeed, index));
         },
         keypair_from_index: (masterSeed: Uint8Array, index: number) => {
+          if (wasmModule.keypair_from_index) {
+            const result = wasmModule.keypair_from_index(masterSeed, index);
+            const pk = Array.isArray(result.public_key) ? result.public_key : result.public_key();
+            const sk = Array.isArray(result.secret_key) ? result.secret_key : result.secret_key();
+            return {
+              publicKey: new Uint8Array(pk),
+              secretKey: new Uint8Array(sk),
+            };
+          }
+          // Fallback for mock
           const result = wasmModule.keypair_from_index(masterSeed, index);
+          const pk = Array.isArray(result.public_key) ? result.public_key : result.public_key();
+          const sk = Array.isArray(result.secret_key) ? result.secret_key : result.secret_key();
           return {
-            publicKey: new Uint8Array(result.public_key()),
-            secretKey: new Uint8Array(result.secret_key()),
+            publicKey: new Uint8Array(pk),
+            secretKey: new Uint8Array(sk),
           };
         },
         min_seed_length: () => wasmModule.min_seed_length ? wasmModule.min_seed_length() : 48,
