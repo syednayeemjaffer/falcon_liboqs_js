@@ -7,6 +7,21 @@ interface FalconProviderProps {
   wasmPath?: string;
 }
 
+// Simple hash function for mock implementation
+function simpleHash(data: Uint8Array | number[]): Uint8Array {
+  const dataArray = data instanceof Uint8Array ? Array.from(data) : data;
+  let hash = new Uint8Array(32);
+  for (let i = 0; i < dataArray.length; i++) {
+    const val = typeof dataArray[i] === 'number' ? dataArray[i] : 0;
+    hash[i % 32] = (hash[i % 32] + val) % 256;
+  }
+  // Mix it up a bit
+  for (let i = 0; i < 32; i++) {
+    hash[i] = ((hash[i] << 1) | (hash[(i + 1) % 32] >>> 7)) % 256;
+  }
+  return hash;
+}
+
 // Mock WASM module implementation
 function createMockWasmModule() {
   return {
@@ -94,16 +109,52 @@ function createMockWasmModule() {
       return createMockWasmModule().keypair_from_seed(childSeed);
     },
     sign: (message: Uint8Array | number[], secret_key: Uint8Array | number[]) => {
-      return createMockWasmModule().sign(message, secret_key);
+      const msgArray = message instanceof Uint8Array ? Array.from(message) : message;
+      const skArray = secret_key instanceof Uint8Array ? Array.from(secret_key) : secret_key;
+      
+      if (!skArray || skArray.length === 0) {
+        throw new Error('Secret key must not be empty');
+      }
+      
+      // Mock deterministic signature: hash(message || secret_key)
+      const combined = [...msgArray, ...skArray];
+      const hash = simpleHash(combined);
+      
+      const sigLen = 64;
+      const signature = new Uint8Array(sigLen);
+      for (let i = 0; i < sigLen; i++) {
+        signature[i] = hash[i % hash.length];
+      }
+      
+      return Array.from(signature);
     },
     verify: (message: Uint8Array | number[], signature: Uint8Array | number[], public_key: Uint8Array | number[]) => {
-      return createMockWasmModule().verify(message, signature, public_key);
+      const msgArray = message instanceof Uint8Array ? Array.from(message) : message;
+      const sigArray = signature instanceof Uint8Array ? Array.from(signature) : signature;
+      const pkArray = public_key instanceof Uint8Array ? Array.from(public_key) : public_key;
+      
+      if (!sigArray || sigArray.length === 0 || !pkArray || pkArray.length === 0) {
+        return false;
+      }
+      
+      // In this mock, recompute a deterministic expected signature
+      const combined = [...msgArray, ...pkArray];
+      const hash = simpleHash(combined);
+      
+      const expected = new Uint8Array(sigArray.length);
+      for (let i = 0; i < sigArray.length; i++) {
+        expected[i] = hash[i % hash.length];
+      }
+      
+      if (expected.length !== sigArray.length) return false;
+      for (let i = 0; i < sigArray.length; i++) {
+        if (expected[i] !== sigArray[i]) return false;
+      }
+      return true;
     },
-    Constants: {
-      min_seed_length: () => 48,
-      public_key_length: () => 897,
-      secret_key_length: () => 1281,
-    },
+    min_seed_length: () => 48,
+    public_key_length: () => 897,
+    secret_key_length: () => 1281,
   };
 }
 
@@ -203,17 +254,15 @@ export const FalconProvider: React.FC<FalconProviderProps> = ({
             secretKey: new Uint8Array(result.secret_key()),
           };
         },
-        Constants: {
-          min_seed_length: () => wasmModule.Constants.min_seed_length(),
-          public_key_length: () => wasmModule.Constants.public_key_length(),
-          secret_key_length: () => wasmModule.Constants.secret_key_length(),
-        },
+        min_seed_length: () => wasmModule.min_seed_length ? wasmModule.min_seed_length() : 48,
+        public_key_length: () => wasmModule.public_key_length ? wasmModule.public_key_length() : 897,
+        secret_key_length: () => wasmModule.secret_key_length ? wasmModule.secret_key_length() : 1281,
         sign: (message: Uint8Array, secretKey: Uint8Array) => {
-          const sig = wasmModule.sign(message, secretKey);
+          const sig = wasmModule.sign ? wasmModule.sign(message, secretKey) : createMockWasmModule().sign(message, secretKey);
           return new Uint8Array(sig);
         },
         verify: (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) => {
-          return wasmModule.verify(message, signature, publicKey);
+          return wasmModule.verify ? wasmModule.verify(message, signature, publicKey) : createMockWasmModule().verify(message, signature, publicKey);
         },
       };
 

@@ -91,9 +91,9 @@ export const useFalcon = () => {
       throw new Error('Falcon WASM is not ready');
     }
     return {
-      minSeedLength: wasm.Constants.min_seed_length(),
-      publicKeyLength: wasm.Constants.public_key_length(),
-      secretKeyLength: wasm.Constants.secret_key_length(),
+      minSeedLength: wasm.min_seed_length(),
+      publicKeyLength: wasm.public_key_length(),
+      secretKeyLength: wasm.secret_key_length(),
     };
   }, [wasm, isReady]);
 
